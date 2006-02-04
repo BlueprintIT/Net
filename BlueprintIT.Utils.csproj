@@ -84,7 +84,7 @@
                     BuildAction = "Compile"
                 />
                 <File
-                    RelPath = "SortedList.cs"
+                    RelPath = "SortedArrayList.cs"
                     SubType = "Code"
                     BuildAction = "Compile"
                 />
