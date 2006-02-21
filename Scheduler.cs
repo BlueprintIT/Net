@@ -89,7 +89,7 @@ namespace BlueprintIT.Utils
 			map = new Hashtable();
 		}
 
-		public static void ScheduleEvent(DateTime time, ScheduledEventHandler handler)
+		public static string ScheduleEvent(DateTime time, ScheduledEventHandler handler)
 		{
 			string id;
 			lock (map)
@@ -100,6 +100,7 @@ namespace BlueprintIT.Utils
 				} while (map[id]!=null);
 			}
 			ScheduleEvent(id,time,handler);
+      return id;
 		}
 
 		public static void ScheduleEvent(string id, DateTime time, ScheduledEventHandler handler)
