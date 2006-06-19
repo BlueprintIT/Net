@@ -21,6 +21,15 @@ namespace BlueprintIT.Controls
     public int Bottom;
   }
 
+  public enum TabCloseStyle
+  {
+    None,
+    Hover,
+    Selected,
+    SelectedAndHover,
+    All
+  }
+
   /// <summary>
   /// The delegate to use for the <see cref="BpTabControl.TabChanging"/> event.
   /// </summary>
@@ -32,6 +41,11 @@ namespace BlueprintIT.Controls
 	public class BpTabControl : Control
 	{
     #region Private Members
+
+    /// <summary>
+    /// When to display close icons on tabs.
+    /// </summary>
+    private TabCloseStyle closeStyle = TabCloseStyle.None;
 
     /// <summary>
     /// The event handler that hears about tab changes.
@@ -67,6 +81,16 @@ namespace BlueprintIT.Controls
     /// The currently selected tab.
     /// </summary>
     private BpTabPage selectedTab = null;
+
+    /// <summary>
+    /// Holds whether the user is hovering over a tab close button
+    /// </summary>
+    private bool hoverClose = false;
+
+    /// <summary>
+    /// Remember if the user currently has the mouse down on the close button.
+    /// </summary>
+    private BpTabPage clickClose = null;
 
     /// <summary>
     /// The currently hovered tab.
@@ -192,6 +216,10 @@ namespace BlueprintIT.Controls
     /// </summary>
     public event EventHandler TabChanged;
 
+    public event TabClosingEventHandler TabClosing;
+
+    public event TabEventHandler TabClosed;
+
     public event TabMouseEventHandler TabMouseMove;
 
     public event TabMouseEventHandler TabMouseDown;
@@ -211,6 +239,26 @@ namespace BlueprintIT.Controls
     #endregion
 
     #region Public Properties
+
+    /// <summary>
+    /// Determines when to display close buttons on tabs.
+    /// </summary>
+    [DefaultValue(TabCloseStyle.None)]
+    public virtual TabCloseStyle TabCloseStyle
+    {
+      get
+      {
+        return closeStyle;
+      }
+
+      set
+      {
+        if (closeStyle == value)
+          return;
+        this.closeStyle = value;
+        CalculateRectangles();
+      }
+    }
 
     /// <summary>
     /// Gets and sets the <see cref="ImageList"/> used by this
@@ -261,7 +309,7 @@ namespace BlueprintIT.Controls
         else if (value >= Controls.Count)
           throw new IndexOutOfRangeException("Tried to set the property of the SelectedIndex to a value greater than the number of controls.");
 
-        TabChangingEventArgs tcea = new TabChangingEventArgs(selectedIndex, value);
+        TabChangingEventArgs tcea = new TabChangingEventArgs(selectedTab, (BpTabPage)Controls[value]);
         OnTabChanging(tcea);
         if (tcea.Cancel)
           return;
@@ -324,6 +372,35 @@ namespace BlueprintIT.Controls
     #region Public Methods
 
     /// <summary>
+    /// Determine whether to display a close icon on the given tab.
+    /// </summary>
+    /// <param name="page">The tab</param>
+    /// <returns>True if a close button should be displayed.</returns>
+    public bool IncludesCloseButton(BpTabPage page)
+    {
+      if (closeStyle == TabCloseStyle.All)
+        return true;
+
+      if (closeStyle == TabCloseStyle.None)
+        return false;
+
+      if (page == selectedTab)
+        return closeStyle == TabCloseStyle.Selected || closeStyle == TabCloseStyle.SelectedAndHover;
+
+      if (page == clickClose)
+        return true;
+
+      if (page == hoverTab)
+      {
+        if (clickClose != null)
+          return false;
+        return closeStyle == TabCloseStyle.Hover || closeStyle == TabCloseStyle.SelectedAndHover;
+      }
+
+      return false;
+    }
+
+    /// <summary>
     /// Returns the bounding rectangle for a specified tab in this tab control.
     /// </summary>
     /// <param name="index">The 0-based index of the tab you want.</param>
@@ -367,6 +444,94 @@ namespace BlueprintIT.Controls
         result.Width += tabExpand.Horizontal;
       }
       return result;
+    }
+
+    public virtual Rectangle GetTabContentRect(BpTabPage page)
+    {
+      return GetTabContentRect(page, GetTabRect(page));
+    }
+
+    public virtual Rectangle GetTabContentRect(BpTabPage page, Rectangle tab)
+    {
+      Graphics g = CreateGraphics();
+      Rectangle bounds = new Rectangle(tab.X, tab.Y, tab.Width, tab.Height);
+      VisualStyleElement element = GetElement(page);
+      VisualStyleRenderer renderer;
+      if (Application.RenderWithVisualStyles && VisualStyleRenderer.IsElementDefined(element))
+      {
+        renderer = new VisualStyleRenderer(element);
+        bounds = renderer.GetBackgroundContentRectangle(g, bounds);
+      }
+      bounds.X += SystemInformation.Border3DSize.Width;
+      bounds.Y += SystemInformation.Border3DSize.Height;
+      bounds.Width -= SystemInformation.Border3DSize.Width * 2;
+      bounds.Height -= SystemInformation.Border3DSize.Height * 2;
+
+      if (IncludesCloseButton(page))
+      {
+        Size closesize;
+        element = VisualStyleElement.ToolTip.Close.Normal;
+        if (Application.RenderWithVisualStyles && VisualStyleRenderer.IsElementDefined(element))
+        {
+          renderer = new VisualStyleRenderer(element);
+          closesize = renderer.GetPartSize(g, ThemeSizeType.Draw);
+        }
+        else
+        {
+          closesize = new Size(0, 0);
+        }
+        bounds.Width -= closesize.Width;
+      }
+
+      return bounds;
+    }
+
+    public virtual Rectangle GetTabCloseRect(BpTabPage page)
+    {
+      if (!IncludesCloseButton(page))
+        return Rectangle.Empty;
+      return GetTabCloseRect(page, GetTabRect(page));
+    }
+
+    public virtual Rectangle GetTabCloseRect(BpTabPage page, Rectangle tab)
+    {
+      if (!IncludesCloseButton(page))
+        return Rectangle.Empty;
+
+      Graphics g = CreateGraphics();
+      VisualStyleRenderer renderer;
+      Rectangle bounds = new Rectangle(tab.X, tab.Y, tab.Width, tab.Height);
+      VisualStyleElement element = GetElement(page);
+      if (Application.RenderWithVisualStyles && VisualStyleRenderer.IsElementDefined(element))
+      {
+        renderer = new VisualStyleRenderer(element);
+        bounds = renderer.GetBackgroundContentRectangle(g, bounds);
+      }
+      else
+      {
+        ControlPaint.DrawBorder3D(g, bounds, Border3DStyle.Raised, Border3DSide.Left | Border3DSide.Top | Border3DSide.Right | Border3DSide.Middle);
+      }
+      bounds.X += SystemInformation.Border3DSize.Width;
+      bounds.Y += SystemInformation.Border3DSize.Height;
+      bounds.Width -= SystemInformation.Border3DSize.Width * 2;
+      bounds.Height -= SystemInformation.Border3DSize.Height * 2;
+
+      Size closesize;
+      element = VisualStyleElement.ToolTip.Close.Normal;
+      if (Application.RenderWithVisualStyles && VisualStyleRenderer.IsElementDefined(element))
+      {
+        renderer = new VisualStyleRenderer(element);
+        closesize = renderer.GetPartSize(g, ThemeSizeType.Draw);
+      }
+      else
+      {
+        closesize = new Size(0, 0);
+      }
+      bounds.X = bounds.Right - closesize.Width;
+      bounds.Width = closesize.Width;
+      bounds.Y += (bounds.Height - closesize.Height) / 2;
+      bounds.Height = closesize.Height;
+      return bounds;
     }
 
     #endregion
@@ -436,15 +601,20 @@ namespace BlueprintIT.Controls
           SelectedIndex = Math.Max(selectedIndex, Controls.Count-1);
         else
           selectedIndex = Controls.IndexOf(selectedTab);
-        if (cea.Control == hoverTab)
-          hoverTab = null;
 			}
 			else
 			{
 				selectedIndex = -1;
 				selectedTab = null;
 			}
-			CalculateRectangles();
+      if (cea.Control == hoverTab)
+      {
+        hoverTab = null;
+        hoverClose = false;
+      }
+      if (cea.Control == clickClose)
+        clickClose = null;
+      CalculateRectangles();
       ((BpTabPage)cea.Control).TabChanged -= tabEventHandler;
 		}
 
@@ -466,49 +636,154 @@ namespace BlueprintIT.Controls
       }
     }
 
+    protected virtual void OnTabClosing(TabClosingEventArgs e)
+    {
+      if (TabClosing != null)
+        TabClosing(this, e);
+
+      if (!e.Cancel)
+        e.TabPage.CallTabClosing(e);
+    }
+
+    protected virtual void OnTabClosed(TabEventArgs e)
+    {
+      if (TabClosed != null)
+        TabClosed(this, e);
+
+      e.TabPage.CallTabClosed(e);
+    }
+
     protected virtual void OnTabMouseMove(TabMouseEventArgs e)
     {
       if (TabMouseMove != null)
         TabMouseMove(this, e);
+
+      Rectangle closerect = GetTabCloseRect(e.TabPage, e.TabBounds);
+      if (e.TabPage != hoverTab)
+      {
+        if (hoverTab != null)
+        {
+          this.OnTabMouseLeave(new TabEventArgs(hoverTab));
+        }
+        this.OnTabMouseEnter(new TabEventArgs(e.TabPage));
+        if (closerect.Contains(e.Location))
+          hoverClose = true;
+      }
+      else if (closerect.Contains(e.Location))
+      {
+        if (!hoverClose)
+        {
+          hoverClose = true;
+          Invalidate(closerect);
+          Update();
+        }
+      }
+      else if (hoverClose)
+      {
+        hoverClose = false;
+        Invalidate(closerect);
+        Update();
+      }
+
+      Rectangle bounds = GetTabContentRect(e.TabPage, e.TabBounds);
+      e.TabPage.CallTabMouseMove(new TabMouseEventArgs(e.Button, e.Clicks, e.X, e.Y, e.Delta, e.TabPage, Bounds));
     }
 
     protected virtual void OnTabMouseDown(TabMouseEventArgs e)
     {
-      BpTabPage page = (BpTabPage)Controls[e.Index];
-      if (!page.Disabled)
-        SelectedTab = page;
       if (TabMouseDown != null)
         TabMouseDown(this, e);
+
+      if (IncludesCloseButton(e.TabPage))
+      {
+        Rectangle closerect = GetTabCloseRect(e.TabPage, e.TabBounds);
+        if (closerect.Contains(e.Location))
+        {
+          clickClose = e.TabPage;
+          Invalidate(closerect);
+          Update();
+          return;
+        }
+      }
+      if (e.Button == MouseButtons.Left)
+      {
+        if (!e.TabPage.Disabled)
+          SelectedTab = e.TabPage;
+      }
+
+      Rectangle bounds = GetTabContentRect(e.TabPage, e.TabBounds);
+      e.TabPage.CallTabMouseDown(new TabMouseEventArgs(e.Button, e.Clicks, e.X, e.Y, e.Delta, e.TabPage, Bounds));
     }
 
     protected virtual void OnTabMouseUp(TabMouseEventArgs e)
     {
       if (TabMouseUp != null)
         TabMouseUp(this, e);
+
+      if (e.TabPage == clickClose)
+      {
+        Rectangle closerect = GetTabCloseRect(e.TabPage, e.TabBounds);
+        if (closerect.Contains(e.Location))
+        {
+          TabClosingEventArgs tcea = new TabClosingEventArgs(e.TabPage);
+          OnTabClosing(tcea);
+          if (!tcea.Cancel)
+            OnTabClosed(tcea);
+          return;
+        }
+      }
+
+      Rectangle bounds = GetTabContentRect(e.TabPage, e.TabBounds);
+      e.TabPage.CallTabMouseUp(new TabMouseEventArgs(e.Button, e.Clicks, e.X, e.Y, e.Delta, e.TabPage, Bounds));
     }
 
     protected virtual void OnTabMouseClick(TabMouseEventArgs e)
     {
       if (TabMouseClick != null)
         TabMouseClick(this, e);
+
+      Rectangle bounds = GetTabContentRect(e.TabPage, e.TabBounds);
+      e.TabPage.CallTabMouseClick(new TabMouseEventArgs(e.Button, e.Clicks, e.X, e.Y, e.Delta, e.TabPage, Bounds));
     }
 
     protected virtual void OnTabMouseDoubleClick(TabMouseEventArgs e)
     {
       if (TabMouseDoubleClick != null)
         TabMouseDoubleClick(this, e);
+
+      Rectangle bounds = GetTabContentRect(e.TabPage, e.TabBounds);
+      e.TabPage.CallTabMouseDoubleClick(new TabMouseEventArgs(e.Button, e.Clicks, e.X, e.Y, e.Delta, e.TabPage, Bounds));
     }
 
     protected virtual void OnTabMouseEnter(TabEventArgs e)
     {
       if (TabMouseEnter != null)
         TabMouseEnter(this, e);
+
+      hoverTab = e.TabPage;
+      Invalidate(GetTabRect(e.TabPage));
+
+      e.TabPage.CallTabMouseEnter(e);
+      Update();
     }
 
     protected virtual void OnTabMouseLeave(TabEventArgs e)
     {
       if (TabMouseLeave != null)
         TabMouseLeave(this, e);
+
+      if (hoverTab == e.TabPage)
+      {
+        hoverTab = null;
+        hoverClose = false;
+      }
+      else
+        Debug.WriteLine("Mouse left non-hover tab.");
+
+      Invalidate(GetTabRect(e.TabPage));
+
+      e.TabPage.CallTabMouseLeave(e);
+      Update();
     }
 
     /// <summary>
@@ -524,49 +799,16 @@ namespace BlueprintIT.Controls
       {
         foreach (BpTabPage page in Controls)
         {
-          Padding margin = new Padding(SystemInformation.Border3DSize.Width, SystemInformation.Border3DSize.Height, SystemInformation.Border3DSize.Width, SystemInformation.Border3DSize.Height);
           Rectangle bounds = GetTabRect(page);
           if (bounds.Contains(e.Location))
           {
-            if (page != hoverTab)
-            {
-              if (hoverTab != null)
-              {
-                TabEventArgs tea = new TabEventArgs(Controls.IndexOf(hoverTab));
-                this.OnTabMouseLeave(tea);
-                hoverTab.CallTabMouseLeave(tea);
-                Invalidate(GetTabRect(hoverTab));
-              }
-              hoverTab = page;
-              if (hoverTab != null)
-              {
-                TabEventArgs tea = new TabEventArgs(Controls.IndexOf(hoverTab));
-                this.OnTabMouseEnter(tea);
-                hoverTab.CallTabMouseEnter(tea);
-                Invalidate(GetTabRect(hoverTab));
-              }
-              Update();
-            }
-            bounds.X += margin.Left;
-            bounds.Y += margin.Top;
-            bounds.Width -= margin.Horizontal;
-            bounds.Height -= margin.Vertical;
-            TabMouseEventArgs ea = new TabMouseEventArgs(e, Controls.IndexOf(page), bounds);
-            this.OnTabMouseMove(ea);
-            page.CallTabMouseMove(ea);
+            this.OnTabMouseMove(new TabMouseEventArgs(e, page, bounds));
             return;
           }
         }
       }
       if (hoverTab != null)
-      {
-        TabEventArgs tea = new TabEventArgs(Controls.IndexOf(hoverTab));
-        this.OnTabMouseLeave(tea);
-        hoverTab.CallTabMouseLeave(tea);
-        Invalidate(GetTabRect(hoverTab));
-        hoverTab = null;
-        Update();
-      }
+        this.OnTabMouseLeave(new TabEventArgs(hoverTab));
     }
 
     /// <summary>
@@ -582,17 +824,10 @@ namespace BlueprintIT.Controls
       {
         foreach (BpTabPage page in Controls)
         {
-          Padding margin = new Padding(SystemInformation.Border3DSize.Width, SystemInformation.Border3DSize.Height, SystemInformation.Border3DSize.Width, SystemInformation.Border3DSize.Height);
           Rectangle bounds = GetTabRect(page);
           if (bounds.Contains(e.Location))
           {
-            bounds.X += margin.Left;
-            bounds.Y += margin.Top;
-            bounds.Width -= margin.Horizontal;
-            bounds.Height -= margin.Vertical;
-            TabMouseEventArgs ea = new TabMouseEventArgs(e, Controls.IndexOf(page), bounds);
-            this.OnTabMouseDown(ea);
-            page.CallTabMouseDown(ea);
+            this.OnTabMouseDown(new TabMouseEventArgs(e, page, bounds));
             break;
           }
         }
@@ -612,20 +847,19 @@ namespace BlueprintIT.Controls
       {
         foreach (BpTabPage page in Controls)
         {
-          Padding margin = new Padding(SystemInformation.Border3DSize.Width, SystemInformation.Border3DSize.Height, SystemInformation.Border3DSize.Width, SystemInformation.Border3DSize.Height);
           Rectangle bounds = GetTabRect(page);
           if (bounds.Contains(e.Location))
           {
-            bounds.X += margin.Left;
-            bounds.Y += margin.Top;
-            bounds.Width -= margin.Horizontal;
-            bounds.Height -= margin.Vertical;
-            TabMouseEventArgs ea = new TabMouseEventArgs(e, Controls.IndexOf(page), bounds);
-            this.OnTabMouseUp(ea);
-            page.CallTabMouseUp(ea);
+            this.OnTabMouseUp(new TabMouseEventArgs(e, page, bounds));
             break;
           }
         }
+      }
+      if (clickClose != null)
+      {
+        Invalidate(GetTabCloseRect(clickClose));
+        clickClose = null;
+        Update();
       }
     }
 
@@ -642,17 +876,10 @@ namespace BlueprintIT.Controls
       {
         foreach (BpTabPage page in Controls)
         {
-          Padding margin = new Padding(SystemInformation.Border3DSize.Width, SystemInformation.Border3DSize.Height, SystemInformation.Border3DSize.Width, SystemInformation.Border3DSize.Height);
           Rectangle bounds = GetTabRect(page);
           if (bounds.Contains(e.Location))
           {
-            bounds.X += margin.Left;
-            bounds.Y += margin.Top;
-            bounds.Width -= margin.Horizontal;
-            bounds.Height -= margin.Vertical;
-            TabMouseEventArgs ea = new TabMouseEventArgs(e, Controls.IndexOf(page), bounds);
-            this.OnTabMouseClick(ea);
-            page.CallTabMouseClick(ea);
+            this.OnTabMouseClick(new TabMouseEventArgs(e, page, bounds));
             break;
           }
         }
@@ -672,17 +899,10 @@ namespace BlueprintIT.Controls
       {
         foreach (BpTabPage page in Controls)
         {
-          Padding margin = new Padding(SystemInformation.Border3DSize.Width, SystemInformation.Border3DSize.Height, SystemInformation.Border3DSize.Width, SystemInformation.Border3DSize.Height);
           Rectangle bounds = GetTabRect(page);
           if (bounds.Contains(e.Location))
           {
-            bounds.X += margin.Left;
-            bounds.Y += margin.Top;
-            bounds.Width -= margin.Horizontal;
-            bounds.Height -= margin.Vertical;
-            TabMouseEventArgs ea = new TabMouseEventArgs(e, Controls.IndexOf(page), bounds);
-            this.OnTabMouseDoubleClick(ea);
-            page.CallTabMouseDoubleClick(ea);
+            this.OnTabMouseDoubleClick(new TabMouseEventArgs(e, page, bounds));
             break;
           }
         }
@@ -693,14 +913,7 @@ namespace BlueprintIT.Controls
     {
       base.OnMouseLeave(e);
       if (hoverTab != null)
-      {
-        TabEventArgs tea = new TabEventArgs(Controls.IndexOf(hoverTab));
-        this.OnTabMouseLeave(tea);
-        hoverTab.CallTabMouseLeave(tea);
-        Invalidate(GetTabRect(hoverTab));
-        hoverTab = null;
-        Update();
-      }
+        this.OnTabMouseLeave(new TabEventArgs(hoverTab));
     }
 
     protected void OnTabPaint(TabPaintEventArgs e)
@@ -723,11 +936,27 @@ namespace BlueprintIT.Controls
       {
         ControlPaint.DrawBorder3D(g, bounds, Border3DStyle.Raised, Border3DSide.Left | Border3DSide.Top | Border3DSide.Right | Border3DSide.Middle);
       }
-      bounds.X += SystemInformation.Border3DSize.Width;
-      bounds.Y += SystemInformation.Border3DSize.Height;
-      bounds.Width -= SystemInformation.Border3DSize.Width * 2;
-      bounds.Height -= SystemInformation.Border3DSize.Height * 2;
-      TabPaintEventArgs ea = new TabPaintEventArgs(g, bounds, Controls.IndexOf(page));
+
+      if (IncludesCloseButton(page))
+      {
+        Rectangle closerect = GetTabCloseRect(page, bounds);
+        element = VisualStyleElement.ToolTip.Close.Normal;
+        if (hoverClose)
+        {
+          if (clickClose == page)
+            element = VisualStyleElement.ToolTip.Close.Pressed;
+          else if (clickClose == null)
+            element = VisualStyleElement.ToolTip.Close.Hot;
+        }
+        if (Application.RenderWithVisualStyles && VisualStyleRenderer.IsElementDefined(element))
+        {
+          VisualStyleRenderer renderer = new VisualStyleRenderer(element);
+          renderer.DrawBackground(g, closerect);
+        }
+      }
+      
+      bounds = GetTabContentRect(page, bounds);
+      TabPaintEventArgs ea = new TabPaintEventArgs(g, bounds, page);
       OnTabPaint(ea);
       page.CallTabPaint(ea);
     }
@@ -797,7 +1026,6 @@ namespace BlueprintIT.Controls
     /// <param name="e">The event arguments</param>
     private void OnTabChanged(object sender, EventArgs e)
     {
-      Debug.WriteLine("TabChanged");
       CalculateRectangles();
     }
 
@@ -866,7 +1094,6 @@ namespace BlueprintIT.Controls
 		/// </summary>
 		private void CalculateRectangles()
 		{
-      Debug.WriteLine("Calculate");
       Rectangle olddisp = displayRectangle;
       positions.Clear();
       Graphics g = this.CreateGraphics();
@@ -881,11 +1108,27 @@ namespace BlueprintIT.Controls
         int pos = 0;
         foreach (BpTabPage page in Controls)
         {
+          VisualStyleElement element;
+          VisualStyleRenderer renderer;
+
+          Size closebutton = new Size(0, 0);
+          if (IncludesCloseButton(page))
+          {
+            element = VisualStyleElement.ToolTip.Close.Normal;
+            if (Application.RenderWithVisualStyles && VisualStyleRenderer.IsElementDefined(element))
+            {
+              renderer = new VisualStyleRenderer(element);
+              closebutton = renderer.GetPartSize(g, ThemeSizeType.Draw);
+            }
+          }
+
           Size size = page.GetPreferredTabSize(g);
-          VisualStyleElement element = GetGuessedElement(page);
+          size.Height = Math.Max(size.Height, closebutton.Height);
+          size.Width += closebutton.Width;
+          element = GetGuessedElement(page);
           if (Application.RenderWithVisualStyles && VisualStyleRenderer.IsElementDefined(element))
           {
-            VisualStyleRenderer renderer = new VisualStyleRenderer(element);
+            renderer = new VisualStyleRenderer(element);
             Rectangle fake = new Rectangle(0, 0, size.Width, size.Height);
             fake = renderer.GetBackgroundExtent(g, fake);
             size = new Size(fake.Width, fake.Height);

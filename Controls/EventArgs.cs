@@ -10,48 +10,74 @@ namespace BlueprintIT.Controls
 
   public delegate void TabPaintEventHandler(object sender, TabPaintEventArgs e);
 
-  public class TabEventArgs : EventArgs
-  {
-    private int index;
+  public delegate void TabClosingEventHandler(object sender, TabClosingEventArgs e);
 
-    public TabEventArgs(int index) : base()
+  public class TabClosingEventArgs : TabEventArgs
+  {
+    private bool cancel = false;
+
+    public TabClosingEventArgs(BpTabPage page)
+      : base(page)
     {
-      this.index = index;
     }
 
-    public int Index
+    public bool Cancel
     {
       get
       {
-        return index;
+        return cancel;
+      }
+
+      set
+      {
+        cancel = value;
+      }
+    }
+  }
+
+  public class TabEventArgs : EventArgs
+  {
+    private BpTabPage page;
+
+    public TabEventArgs(BpTabPage page)
+      : base()
+    {
+      this.page = page;
+    }
+
+    public BpTabPage TabPage
+    {
+      get
+      {
+        return page;
       }
     }
   }
 
   public class TabMouseEventArgs : MouseEventArgs
   {
-    private int index;
+    private BpTabPage page;
     private Rectangle bounds;
 
-    public TabMouseEventArgs(MouseButtons button, int clicks, int x, int y, int delta, int index, Rectangle bounds)
+    public TabMouseEventArgs(MouseButtons button, int clicks, int x, int y, int delta, BpTabPage page, Rectangle bounds)
       : base(button, clicks, x, y, delta)
     {
-      this.index = index;
+      this.page = page;
       this.bounds = bounds;
     }
 
-    public TabMouseEventArgs(MouseEventArgs e, int index, Rectangle bounds)
+    public TabMouseEventArgs(MouseEventArgs e, BpTabPage page, Rectangle bounds)
       : base(e.Button, e.Clicks, e.X, e.Y, e.Delta)
     {
-      this.index = index;
+      this.page = page;
       this.bounds = bounds;
     }
 
-    public int Index
+    public BpTabPage TabPage
     {
       get
       {
-        return index;
+        return page;
       }
     }
 
@@ -66,19 +92,19 @@ namespace BlueprintIT.Controls
 
   public class TabPaintEventArgs : PaintEventArgs
   {
-    private int index;
+    private BpTabPage page;
 
-    public TabPaintEventArgs(Graphics g, Rectangle clip, int index)
+    public TabPaintEventArgs(Graphics g, Rectangle clip, BpTabPage page)
       : base(g, clip)
     {
-      this.index = index;
+      this.page = page;
     }
 
-    public int Index
+    public BpTabPage TabPage
     {
       get
       {
-        return index;
+        return page;
       }
     }
   }
@@ -95,17 +121,17 @@ namespace BlueprintIT.Controls
 		/// </summary>
 		/// <param name="currentIndex">The current selected index of the <see cref="BpTabControl"/>.</param>
 		/// <param name="newIndex">The value to which the selected index changes.</param>
-		public TabChangingEventArgs( int currentIndex, int newIndex )
+		public TabChangingEventArgs(BpTabPage current, BpTabPage newtab)
 		{
-			this.cIndex = currentIndex;
-			this.nIndex = newIndex;
+			this.cIndex = current;
+			this.nIndex = newtab;
 		}
 
 		/// <summary>
 		/// Gets the value of the <see cref="BpTabControl.SelectedIndex"/> for the
 		/// <see cref="BpTabControl"/> from which this event got generated.
 		/// </summary>
-		public int CurrentIndex
+		public BpTabPage CurrentTab
 		{
 			get
 			{
@@ -117,7 +143,7 @@ namespace BlueprintIT.Controls
 		/// Gets the value to which the <see cref="BpTabControl.SelectedIndex"/>
 		/// will change.
 		/// </summary>
-		public int NewIndex
+    public BpTabPage NewTab
 		{
 			get
 			{
@@ -149,11 +175,11 @@ namespace BlueprintIT.Controls
 		/// <summary>
 		/// The current index to report in the event.
 		/// </summary>
-		private int cIndex;
+		private BpTabPage cIndex;
 
 		/// <summary>
 		/// The index to which the tab control changes.
 		/// </summary>
-		private int nIndex;
+		private BpTabPage nIndex;
 	}
 }

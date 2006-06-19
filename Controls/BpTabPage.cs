@@ -49,6 +49,10 @@ namespace BlueprintIT.Controls
 
     #region Public Events
 
+    public event TabClosingEventHandler TabClosing;
+
+    public event TabEventHandler TabClosed;
+
     public event TabMouseEventHandler TabMouseMove;
 
     public event TabMouseEventHandler TabMouseDown;
@@ -172,7 +176,6 @@ namespace BlueprintIT.Controls
 			{
         if (base.Text == value)
           return;
-        Debug.WriteLine("TextChange");
 				base.Text = value;
         OnTabChanged(new EventArgs());
 			}
@@ -264,6 +267,18 @@ namespace BlueprintIT.Controls
       return new BpTabPage.ControlCollection(this);
     }
 
+    protected virtual void OnTabClosing(TabClosingEventArgs e)
+    {
+      if (TabClosing != null)
+        TabClosing(this, e);
+    }
+
+    protected virtual void OnTabClosed(TabEventArgs e)
+    {
+      if (TabClosed != null)
+        TabClosed(this, e);
+    }
+
     protected virtual void OnTabMouseMove(TabMouseEventArgs e)
     {
       if (TabMouseMove != null)
@@ -326,6 +341,16 @@ namespace BlueprintIT.Controls
     #endregion
 
     #region Internal Event Hooks
+
+    internal void CallTabClosing(TabClosingEventArgs e)
+    {
+      OnTabClosing(e);
+    }
+
+    internal void CallTabClosed(TabEventArgs e)
+    {
+      OnTabClosed(e);
+    }
 
     internal void CallTabMouseMove(TabMouseEventArgs e)
     {
