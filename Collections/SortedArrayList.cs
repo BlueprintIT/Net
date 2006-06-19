@@ -1,7 +1,7 @@
 using System;
 using System.Collections;
 
-namespace BlueprintIT.Utils
+namespace BlueprintIT.Collections
 {
 	public class SortedArrayList: IList
 	{

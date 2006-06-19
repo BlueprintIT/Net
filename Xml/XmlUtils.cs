@@ -4,7 +4,7 @@ using System.Text;
 using System.Xml;
 using System.IO;
 
-namespace BlueprintIT.Utils
+namespace BlueprintIT.Xml
 {
   public class XmlUtils
   {
