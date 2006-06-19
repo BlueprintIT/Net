@@ -478,7 +478,10 @@ namespace BlueprintIT.Controls
         }
         else
         {
-          closesize = new Size(0, 0);
+          Font closefont = new Font("Marlett", SystemFonts.MenuFont.Size);
+          closesize = TextRenderer.MeasureText("r", closefont);
+          closesize.Height += SystemInformation.Border3DSize.Height * 4;
+          closesize.Width += SystemInformation.Border3DSize.Width * 4;
         }
         bounds.Width -= closesize.Width;
       }
@@ -507,10 +510,6 @@ namespace BlueprintIT.Controls
         renderer = new VisualStyleRenderer(element);
         bounds = renderer.GetBackgroundContentRectangle(g, bounds);
       }
-      else
-      {
-        ControlPaint.DrawBorder3D(g, bounds, Border3DStyle.Raised, Border3DSide.Left | Border3DSide.Top | Border3DSide.Right | Border3DSide.Middle);
-      }
       bounds.X += SystemInformation.Border3DSize.Width;
       bounds.Y += SystemInformation.Border3DSize.Height;
       bounds.Width -= SystemInformation.Border3DSize.Width * 2;
@@ -525,7 +524,10 @@ namespace BlueprintIT.Controls
       }
       else
       {
-        closesize = new Size(0, 0);
+        Font closefont = new Font("Marlett", SystemFonts.MenuFont.Size);
+        closesize = TextRenderer.MeasureText("r", closefont);
+        closesize.Height += SystemInformation.Border3DSize.Height * 2;
+        closesize.Width += SystemInformation.Border3DSize.Width * 2;
       }
       bounds.X = bounds.Right - closesize.Width;
       bounds.Width = closesize.Width;
@@ -941,17 +943,34 @@ namespace BlueprintIT.Controls
       {
         Rectangle closerect = GetTabCloseRect(page, bounds);
         element = VisualStyleElement.ToolTip.Close.Normal;
+        Border3DStyle borderstyle = Border3DStyle.Flat;
         if (hoverClose)
         {
           if (clickClose == page)
+          {
             element = VisualStyleElement.ToolTip.Close.Pressed;
+            borderstyle = Border3DStyle.Sunken;
+          }
           else if (clickClose == null)
+          {
             element = VisualStyleElement.ToolTip.Close.Hot;
+            borderstyle = Border3DStyle.Raised;
+          }
         }
         if (Application.RenderWithVisualStyles && VisualStyleRenderer.IsElementDefined(element))
         {
           VisualStyleRenderer renderer = new VisualStyleRenderer(element);
           renderer.DrawBackground(g, closerect);
+        }
+        else
+        {
+          if (borderstyle != Border3DStyle.Flat)
+            ControlPaint.DrawBorder3D(g, closerect, borderstyle);
+          Font closefont = new Font("Marlett", SystemFonts.MenuFont.Size);
+          Point pos = closerect.Location;
+          pos.X += SystemInformation.Border3DSize.Width;
+          pos.Y += SystemInformation.Border3DSize.Height;
+          TextRenderer.DrawText(g, "r", closefont, pos, Color.Black);
         }
       }
       
@@ -1119,6 +1138,13 @@ namespace BlueprintIT.Controls
             {
               renderer = new VisualStyleRenderer(element);
               closebutton = renderer.GetPartSize(g, ThemeSizeType.Draw);
+            }
+            else
+            {
+              Font closefont = new Font("Marlett", SystemFonts.MenuFont.Size);
+              closebutton = TextRenderer.MeasureText("r", closefont);
+              closebutton.Height += SystemInformation.Border3DSize.Height * 2;
+              closebutton.Width += SystemInformation.Border3DSize.Width * 2;
             }
           }
 
