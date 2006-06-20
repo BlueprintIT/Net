@@ -600,14 +600,22 @@ namespace BlueprintIT.Controls
 			if( Controls.Count > 0 )
 			{
         if (cea.Control == selectedTab)
-          SelectedIndex = Math.Max(selectedIndex, Controls.Count-1);
+        {
+          selectedIndex = Math.Min(selectedIndex, Controls.Count - 1);
+          selectedTab = (BpTabPage)Controls[selectedIndex];
+          selectedTab.Visible = true;
+        }
         else
+        {
           selectedIndex = Controls.IndexOf(selectedTab);
+          selectedRow = positions[selectedTab].Row;
+        }
 			}
 			else
 			{
 				selectedIndex = -1;
 				selectedTab = null;
+        selectedRow = -1;
 			}
       if (cea.Control == hoverTab)
       {
