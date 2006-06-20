@@ -100,6 +100,10 @@ namespace BlueprintIT.Shell
       else if (icon != null)
         LargeIcons.Images.Add(icon);
 
+      if ((extension == "EXE") ||
+          (extension == "LNK"))
+        return index;
+
       if (extension.Length > 0)
         icons[extension] = index;
       return index;
